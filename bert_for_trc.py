@@ -17,8 +17,10 @@ class BertForTRC(BertPreTrainedModel):
 
     def set_loss_weights(self, weights_list):
         """
-        Sets custom loss weights. 
-
+        Sets custom loss weights.
+        ---
+        Ideally should be used to increase the weight of losses on
+        rare labels and decrease weight of losses on frequent labels.
         """
         self.train_class_loss_weights=np.array(weights_list)
         self.loss = torch.nn.CrossEntropyLoss(
@@ -53,3 +55,113 @@ class BertForTRC(BertPreTrainedModel):
         out = self.classifier(cls_tensor)
         loss = self.loss(out, tre_labels)
         return out, loss
+
+
+class InputFeatures(object):
+    """Object containing the features for one example/data."""
+
+    def __init__(self,
+                 unique_id,
+                 example_index,
+                 tokens,
+                 input_ids,
+                 input_mask,
+                 segment_ids,
+                 label,
+                 e1_position=None,
+                 e2_position=None
+                 ):
+        self.unique_id = unique_id
+        self.example_index = example_index
+        self.tokens = tokens
+        self.input_ids = input_ids
+        self.input_mask = input_mask
+        
+        # Indicates sentence A or sentence B.
+        self.segment_ids = segment_ids
+        self.label = label
+        self.e1_position = e1_position
+        self.e2_position = e2_position
+
+        
+def convert_examples_to_features(examples, tokenizer, max_seq_length,
+                                 doc_stride, is_training):
+    """Loads a data file into a list of InputFeatures."""
+
+    unique_id = 1000000000
+
+    features = []
+    
+                
+    # Generates features from examples.
+    for (example_index, example) in enumerate(examples):
+        input_tokens = tokenizer.tokenize(example.text)
+        
+        # Maximum number of tokens that an example may have. This is equal to 
+        # the maximum token length less 3 tokens for [CLS], [SEP], [SEP].
+        max_tokens_for_doc = max_seq_length - 3
+
+        # Skips this example if it is too long.
+        if len(input_tokens) > max_tokens_for_doc:
+            unique_id += 1
+            continue
+ 
+        # Creates mappings from words in original text to tokens.
+        tok_to_orig_index = []
+        orig_to_tok_index = []
+        all_doc_tokens = []
+        for (i, word) in enumerate(example.text.split()):
+            orig_to_tok_index.append(len(all_doc_tokens)) 
+            tokens = tokenizer.tokenize(word)
+            for token in tokens:
+                tok_to_orig_index.append(i)
+                all_doc_tokens.append(token)
+
+        # + 1 accounts for CLS token
+        tok_e1_pos = orig_to_tok_index[example.e1_pos] + 1
+        tok_e2_pos = orig_to_tok_index[example.e2_pos] + 1
+       
+
+        # The -3 accounts for [CLS], [SEP] and [SEP]
+
+        tokens = []
+        segment_ids = []
+        tokens.append("[CLS]")
+        segment_ids.append(0)
+        for token in input_tokens:
+            tokens.append(token)
+            segment_ids.append(0)
+
+        input_ids = tokenizer.convert_tokens_to_ids(tokens)
+
+        # The mask has 1 for real tokens and 0 for padding tokens. Only real
+        # tokens are attended to.
+        input_mask = [1] * len(input_ids)
+        # Zero-pads up to the sequence length.
+        while len(input_ids) < max_seq_length:
+            input_ids.append(0)
+            input_mask.append(0)
+            segment_ids.append(0)
+
+        assert len(input_ids) == max_seq_length
+        assert len(input_mask) == max_seq_length
+        assert len(segment_ids) == max_seq_length
+        assert tok_e1_pos < max_seq_length
+        assert tok_e2_pos < max_seq_length
+ 
+        features.append(
+            InputFeatures(
+                unique_id=unique_id,
+                example_index=example_index,
+                tokens=tokens,
+                input_ids=input_ids,
+                input_mask=input_mask,
+                segment_ids=segment_ids,
+                label=example.int_label,
+                e1_position=tok_e1_pos,
+                e2_position=tok_e2_pos
+            )
+        )
+        unique_id += 1
+
+    return features
