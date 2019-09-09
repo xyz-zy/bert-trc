@@ -186,6 +186,19 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
 
     return features
 
+def make_tensor_dataset(train_features):
+    all_input_ids = torch.tensor([f.input_ids for f in train_features], dtype=torch.long)
+    all_input_mask = torch.tensor([f.input_mask for f in train_features], dtype=torch.long)
+    all_segment_ids = torch.tensor([f.segment_ids for f in train_features], dtype=torch.long)
+
+    all_label_ids = torch.tensor([e.label for e in train_features], dtype=torch.long)
+    all_e1_pos = torch.tensor([e.e1_position for e in train_features], dtype=torch.long)
+    all_e2_pos = torch.tensor([e.e2_position for e in train_features], dtype=torch.long)
+
+    train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids, all_e1_pos, all_e2_pos)
+    
+    return train_data
+
 
 def to_json_file(config, json_file_path):
         """ Save this instance to a json file."""
