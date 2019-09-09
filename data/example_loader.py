@@ -518,7 +518,7 @@ class ExampleLoader(object):
                 if not example:
                     print("o no")
                 else:
-                    dev_examples.append(example)
+                    test_examples.append(example)
 
         self.assign_num_labels(test_examples)
         return test_examples
