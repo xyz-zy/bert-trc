@@ -469,7 +469,7 @@ class ExampleLoader(object):
         self.assign_num_labels(dev_examples)
         return train_examples, dev_examples
 
-    def read_dense_test_examples():
+    def read_dense_test_examples(self, td_path, extra=False, window_size=None):
         class DenseExample(object):
             def __init__(self, file_name, e1, e2, label):
                 self.file_name = file_name
