@@ -1,5 +1,7 @@
-import torch
 import numpy as np
+
+import torch
+from torch.utils.data import TensorDataset
 
 import pytorch_pretrained_bert
 from pytorch_pretrained_bert.modeling import BertModel
