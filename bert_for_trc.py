@@ -36,11 +36,11 @@ class BertForTRC(BertPreTrainedModel):
             output_tensors.append(position_tensor)
         return torch.stack(output_tensors, dim=0)
 
-    def gen_mask(positions):
-        mask = torch.zeros(len(positions), len(positions), dtype=torch.uint8)
-        for sample_idx, pos in enumerate(positions):
-            mask[sample_idx, pos] = 1
-        return mask
+    # def gen_mask(positions):
+    #     mask = torch.zeros(len(positions), len(positions), dtype=torch.uint8)
+    #     for sample_idx, pos in enumerate(positions):
+    #         mask[sample_idx, pos] = 1
+    #     return mask
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, tre_labels=None, e1_pos=None, e2_pos=None):
         sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask,
@@ -55,6 +55,26 @@ class BertForTRC(BertPreTrainedModel):
         out = self.classifier(cls_tensor)
         loss = self.loss(out, tre_labels)
         return out, loss
+
+class BertForTBD(BertForTRC):
+    
+    def __init__(self, config):
+        super(BertForTBD, self).__init__(config)
+        self.classifier = torch.nn.Linear(2*768, 6)
+
+    def set_loss_weights(self, weights_list):
+        """
+        Sets custom loss weights.
+        ---
+        Ideally should be used to increase the weight of losses on
+        rare labels and decrease weight of losses on frequent labels.
+        """
+        self.train_class_loss_weights=np.array(weights_list)
+        self.loss = torch.nn.CrossEntropyLoss(
+            weight=torch.from_numpy(
+              self.train_class_loss_weights)
+                  .float()
+        )
 
 
 class InputFeatures(object):
@@ -165,3 +185,25 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         unique_id += 1
 
     return features
+
+
+def to_json_file(config, json_file_path):
+        """ Save this instance to a json file."""
+        with open(json_file_path, "w", encoding='utf-8') as writer:
+            writer.write(config.to_json_string())
+
+
+def save_vocabulary(tokenizer, vocab_path):
+    """Save the tokenizer vocabulary to a directory or file."""
+    index = 0
+    if os.path.isdir(vocab_path):
+        vocab_file = os.path.join(vocab_path, 'vocab.txt')
+    with open(vocab_file, "w", encoding="utf-8") as writer:
+        for token, token_index in sorted(tokenizer.vocab.items(), key=lambda kv: kv[1]):
+            if index != token_index:
+                logger.warning("Saving vocabulary to {}: vocabulary indices are not consecutive."
+                               " Please check that the vocabulary is not corrupted!".format(vocab_file))
+                index = token_index
+            writer.write(token + u'\n')
+            index += 1
+    return vocab_file
