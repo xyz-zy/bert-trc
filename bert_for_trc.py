@@ -46,6 +46,13 @@ class BertForTRC(BertPreTrainedModel):
     #         mask[sample_idx, pos] = 1
     #     return mask
 
+    def eval_sequence_output(self, input_ids, token_type_ids=None, attention_mask=None, 
+                             tre_labels=None, e1_pos=None, e2_pos=None):
+        sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask,
+                                       output_all_encoded_layers=False)
+        return sequence_output
+
+
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, tre_labels=None, e1_pos=None, e2_pos=None):
         sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask,
                                        output_all_encoded_layers=False)
