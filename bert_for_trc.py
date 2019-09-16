@@ -87,6 +87,26 @@ class BertForTBD(BertForTRC):
                   .float()
         )
 
+class BertForMatres(BertForTRC):
+    
+    def __init__(self, config):
+        super(BertForTBD, self).__init__(config)
+        self.classifier = torch.nn.Linear(2*768, 4)
+
+    def set_loss_weights(self, weights_list):
+        """
+        Sets custom loss weights.
+        ---
+        Ideally should be used to increase the weight of losses on
+        rare labels and decrease weight of losses on frequent labels.
+        """
+        self.train_class_loss_weights=np.array(weights_list)
+        self.loss = torch.nn.CrossEntropyLoss(
+            weight=torch.from_numpy(
+              self.train_class_loss_weights)
+                  .float()
+        )
+
 
 class InputFeatures(object):
     """Object containing the features for one example/data."""
