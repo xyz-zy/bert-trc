@@ -34,14 +34,11 @@ class ExampleLoader(object):
             text = ""
             for child in node.childNodes:
                 text += " "+ self.get_text_from_element(child) + " "
-                print(text)
             return text
 
     def process_node(self, node, sentence, sentences, events, times):
-        # print(node.nodeName)
         if node.nodeName == "EVENT":
             eid = node.attributes['eid'].value
-            print(eid)
             cls = node.attributes['class'].value
             sentence_num = len(sentences)
             pos_in_sentence = len(sentence.split())
@@ -160,21 +157,10 @@ class ExampleLoader(object):
 
         return TimeMLFile(sentences, events, event_instances, times, None)
 
-    def read_file(self, input_file):
-        doc = dom.parse(input_file)
-        root = doc.childNodes[0]
-
-        sentences = []
-
-        events = {}
-        times = {}
-
-        doc_text = ""
+    def parse_node(self, root, sentences, events, times):
         this_sentence = ""
         for node in root.childNodes:
             if node.nodeType == node.TEXT_NODE and not node.data.isspace():
-                print("text")
-                print(node.data)
                 text = re.sub(r"\n+", " ", node.data)
                 split_space = text.split()
                 text = " ".join(split_space)
@@ -184,23 +170,41 @@ class ExampleLoader(object):
                     if len(this_sentence) > 0 and this_sentence[-1] in ["?", ".", "!"]:
                         sentences.append(this_sentence)
                         this_sentence = ""
+            elif node.nodeName == "TEXT":
+                self.parse_node(node, sentences, events, times)
             else:
-                # print("not")
                 self.process_node(node, this_sentence, sentences, events, times)
                 text = self.get_text_from_element(node)
                 if text:
-                    print(text)
                     this_sentence += " " + text + " "
                     if len(this_sentence) > 0 and this_sentence[-1] in ["?", ".", "!"]:
                         sentences.append(this_sentence)
                         this_sentence = ""
 
         if len(this_sentence) > 0:
-            print("hi")
-            print(this_sentence)
             split = this_sentence.split()
             rejoined = " ".join(split)
             sentences.append(rejoined)
+
+    def read_file(self, input_file):
+        """
+        Parameters
+        ----------
+        input_file: str, path to input file
+
+        Returns
+        -------
+        TimeMLFile containing sentences, events, eventInstances, times, and tlinks.
+        """
+        doc = dom.parse(input_file)
+        root = doc.childNodes[0]
+
+        sentences = []
+
+        events = {}
+        times = {}
+        self.parse_node(root, sentences, events, times)
+
 
         event_instances = {}
         instanceElts = root.getElementsByTagName("MAKEINSTANCE")
@@ -286,7 +290,6 @@ class ExampleLoader(object):
                 e2_pos = sum([len(s.split()) for s in sents[:-1]]) + tlink.e2.pos_in_sentence
 
                 example = TimeMLExample(text, e1_pos, e2_pos, tlink.relType)
-                #print(len(text.split()), e1_pos, e2_pos)
             elif sent1 > sent2:
                 sents = file_data.sentences[sent2:sent1+1]
                 text = " ".join(sents)
@@ -525,3 +528,243 @@ class ExampleLoader(object):
 
     def read_tempeval3_examples():
         return None, None
+
+class TBDenseLoader(ExampleLoader):
+
+    def __init__(self, td_path):
+        super().__init__()
+        self.td_path = td_path
+
+    def read_train_dev_examples(self, extra=False, window_size=None):
+        class DenseExample(object):
+            def __init__(self, file_name, e1, e2, label):
+                self.file_name = file_name
+                self.e1 = e1
+                self.e2 = e2
+                self.label = self.parse_label(label)
+            def parse_label(self, label):
+                labels = { "a":"AFTER", "b":"BEFORE", "i":"INCLUDES", "ii":"IS_INCLUDED",
+                           "s":"SIMULTANEOUS", "v":"VAGUE" }
+                return labels[label]
+
+
+        DEV_DOCS = { "APW19980227.0487",
+                     "CNN19980223.1130.0960", "NYT19980212.0019",
+                     "PRI19980216.2000.0170", "ed980111.1130.0089" }
+
+        TEST_DOCS = { "APW19980227.0489", "APW19980227.0494", "APW19980308.0201", "APW19980418.0210",
+                      "CNN19980126.1600.1104", "CNN19980213.2130.0155",
+                      "NYT19980402.0453", "PRI19980115.2000.0186",
+                      "PRI19980306.2000.1675" }
+
+        files_to_exs = {}
+
+        f = open(self.td_path, "r")
+
+        for line in f.readlines():
+            split = line.split()
+            ex = DenseExample(split[0], split[1], split[2], split[3])
+
+            if ex.file_name not in files_to_exs:
+                files_to_exs[ex.file_name] = [ex]
+            else: 
+                files_to_exs[ex.file_name].append(ex)
+
+        files = set(files_to_exs.keys())
+        train_files = files - DEV_DOCS - TEST_DOCS
+        dev_files = DEV_DOCS
+
+        train_examples = []
+        for file_name in train_files:
+            file = self.read_extra_file(EXTRA_FILE_DIR + "/" + file_name + ".tml") \
+                    if extra \
+                    else self.read_file(FILE_DIR + "/" + file_name + ".tml")
+
+            for ex in files_to_exs[file_name]:
+                e1 = file.get_element(ex.e1)
+                e2 = file.get_element(ex.e2)
+
+                if e1 == None or e2 == None:
+                    #print("oops", file_name, ex.e1, ex.e2)
+                    continue
+
+                example = file.get_example(e1, e2, ex.label, window_size)
+
+                if not example:
+                    print("o no")
+                else:
+                    train_examples.append(example)
+
+        self.assign_num_labels(train_examples)
+
+        dev_examples = []
+        for file_name in dev_files:
+            file = self.read_extra_file(EXTRA_FILE_DIR + "/" + file_name + ".tml") \
+                    if extra \
+                    else self.read_file(FILE_DIR + "/" + file_name + ".tml")
+
+            for ex in files_to_exs[file_name]:
+                e1 = file.get_element(ex.e1)
+                e2 = file.get_element(ex.e2)
+
+                if e1 == None or e2 == None:
+                    #print("oops", file_name, ex.e1, ex.e2)
+                    continue
+
+                example = file.get_example(e1, e2, ex.label, window_size)
+
+                if not example:
+                    print("o no")
+                else:
+                    dev_examples.append(example)
+
+        self.assign_num_labels(dev_examples)
+        return train_examples, dev_examples
+
+    def read_test_examples(self, extra=False, window_size=None):
+        class DenseExample(object):
+            def __init__(self, file_name, e1, e2, label):
+                self.file_name = file_name
+                self.e1 = e1
+                self.e2 = e2
+                self.label = self.parse_label(label)
+            def parse_label(self, label):
+                labels = { "a":"AFTER", "b":"BEFORE", "i":"INCLUDES", "ii":"IS_INCLUDED",
+                           "s":"SIMULTANEOUS", "v":"VAGUE" }
+                return labels[label]
+
+        TEST_DOCS = { "APW19980227.0489", "APW19980227.0494", "APW19980308.0201", "APW19980418.0210",
+                      "CNN19980126.1600.1104", "CNN19980213.2130.0155",
+                      "NYT19980402.0453", "PRI19980115.2000.0186",
+                      "PRI19980306.2000.1675" }
+
+        files_to_exs = {}
+
+        f = open(self.td_path, "r")
+
+        for line in f.readlines():
+            split = line.split()
+            ex = DenseExample(split[0], split[1], split[2], split[3])
+
+            if ex.file_name not in files_to_exs:
+                files_to_exs[ex.file_name] = [ex]
+            else: 
+                files_to_exs[ex.file_name].append(ex)
+
+        test_examples = []
+        for file_name in TEST_DOCS:
+            file = self.read_extra_file(EXTRA_FILE_DIR + "/" + file_name + ".tml") \
+                    if extra \
+                    else self.read_file(FILE_DIR + "/" + file_name + ".tml")
+
+            for ex in files_to_exs[file_name]:
+                e1 = file.get_element(ex.e1)
+                e2 = file.get_element(ex.e2)
+
+                if e1 == None or e2 == None:
+                    #print("oops", file_name, ex.e1, ex.e2)
+                    continue
+
+                example = file.get_example(e1, e2, ex.label, window_size)
+
+                if not example:
+                    print("o no")
+                else:
+                    test_examples.append(example)
+
+        self.assign_num_labels(test_examples)
+        return test_examples
+
+
+class MatresLoader(ExampleLoader):
+
+    def __init__(self):
+        super().__init__()
+
+    def read_subset_examples(self, doc_dir, rel_filename, window_size=None):
+        rels_to_files = {}
+        with open(rel_filename) as rel_file:
+            for line in rel_file:
+                rel = line.split()
+                # print(rel[0])
+                file_name = rel[0]
+                if file_name in rels_to_files:
+                    rels_to_files[file_name].append(rel)
+                else:
+                    rels_to_files[file_name] = [rel]
+
+
+        num_files = len(rels_to_files)
+        print(num_files)
+        split = int(num_files * 0.8)
+
+        files = list(rels_to_files.keys())
+
+        # Reads train files.
+        train_examples = []
+        for file in files[:split]:
+            rels = rels_to_files[file]
+            file_data = self.read_file(doc_dir + file + ".tml")
+            rels = rels_to_files[file]
+            for rel in rels:
+                eiid1 = file_data.get_element("ei" + rel[3])
+                eiid2 = file_data.get_element("ei" + rel[4])
+
+                if eiid1 == None or eiid2 == None:
+                    #print("oops", file_name, ex.e1, ex.e2)
+                    continue
+
+                example = file_data.get_example(eiid1, eiid2, rel[5], window_size)
+
+                if not example:
+                    print("o no")
+                else:
+                    train_examples.append(example)
+
+        # Reads dev files.
+        dev_examples = []
+        for file in files[split:]:
+            rels = rels_to_files[file]
+            file_data = self.read_file(doc_dir + file + ".tml")
+            rels = rels_to_files[file]
+            for rel in rels:
+                eiid1 = file_data.get_element("ei" + rel[3])
+                eiid2 = file_data.get_element("ei" + rel[4])
+
+                if eiid1 == None or eiid2 == None:
+                    #print("oops", file_name, ex.e1, ex.e2)
+                    continue
+
+                example = file_data.get_example(eiid1, eiid2, rel[5], window_size)
+
+                if not example:
+                    print("o no")
+                else:
+                    dev_examples.append(example)
+
+        return train_examples, dev_examples
+
+    def read_train_dev_examples(self, window_size=None):
+        doc_dir = "TBAQ-cleaned/"
+        rel_dir = "../../MATRES/"
+        aquaint_rels = rel_dir + "aquaint.txt"
+        timebank_rels = rel_dir + "timebank.txt"
+
+        a_train, a_dev = self.read_subset_examples(doc_dir + "AQUAINT/", aquaint_rels)
+        t_train, t_dev = self.read_subset_examples(doc_dir + "TimeBank/", timebank_rels)
+
+        train_examples = a_train + t_train
+        dev_examples = a_dev + t_dev
+
+        self.assign_num_labels(train_examples)
+        self.assign_num_labels(dev_examples)
+        return train_examples, dev_examples
+
+    def read_test_examples(self, window_size=None):
+        doc_dir = "TBAQ-cleaned/"
+        rel_dir = "../../MATRES/"
+
+        platinum_rels = rel_dir + "platinum.txt"
+        test_examples_1, test_examples2 = self.read_subset_examples(doc_dir + "platinum/", platinum_rels)
+        
+        return test_examples_1 + test_examples2

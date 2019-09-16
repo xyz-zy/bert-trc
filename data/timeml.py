@@ -86,6 +86,16 @@ class TimeMLFile(object):
         #print(times.keys())
 
     def get_element(self, id):
+        '''
+        Parameters
+        ----------
+        id: str
+            id of event, event instance, or timex contained in this file
+
+        Returns
+        -------
+        Event, EventInstance, or TimeX3.
+        '''
         if id in self.events.keys():
             return self.events[id]
         elif id in self.eventInstances.keys():
