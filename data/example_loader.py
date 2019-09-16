@@ -744,9 +744,9 @@ class MatresLoader(ExampleLoader):
 
         return train_examples, dev_examples
 
-    def read_train_dev_examples(self, window_size=None):
-        doc_dir = "TBAQ-cleaned/"
-        rel_dir = "../../MATRES/"
+    def read_train_dev_examples(self, doc_dir="TBAQ-cleaned/", rel_dir="../../MATRES/", window_size=None):
+        # doc_dir = "TBAQ-cleaned/"
+        # rel_dir = "../../MATRES/"
         aquaint_rels = rel_dir + "aquaint.txt"
         timebank_rels = rel_dir + "timebank.txt"
 
@@ -760,9 +760,9 @@ class MatresLoader(ExampleLoader):
         self.assign_num_labels(dev_examples)
         return train_examples, dev_examples
 
-    def read_test_examples(self, window_size=None):
-        doc_dir = "TBAQ-cleaned/"
-        rel_dir = "../../MATRES/"
+    def read_test_examples(self, doc_dir="TBAQ-cleaned/", rel_dir="../../MATRES/", window_size=None):
+        # doc_dir = "TBAQ-cleaned/"
+        # rel_dir = "../../MATRES/"
 
         platinum_rels = rel_dir + "platinum.txt"
         test_examples_1, test_examples2 = self.read_subset_examples(doc_dir + "platinum/", platinum_rels)
