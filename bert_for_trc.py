@@ -90,7 +90,7 @@ class BertForTBD(BertForTRC):
 class BertForMatres(BertForTRC):
     
     def __init__(self, config):
-        super(BertForTBD, self).__init__(config)
+        super(BertForMatres, self).__init__(config)
         self.classifier = torch.nn.Linear(2*768, 4)
 
     def set_loss_weights(self, weights_list):
