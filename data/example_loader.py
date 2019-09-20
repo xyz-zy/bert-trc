@@ -695,7 +695,7 @@ class MatresLoader(ExampleLoader):
 
 
         num_files = len(rels_to_files)
-        print(num_files)
+        # print(num_files)
         split = int(num_files * 0.8)
 
         files = list(rels_to_files.keys())
