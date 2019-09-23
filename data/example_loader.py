@@ -134,22 +134,6 @@ class ExampleLoader(object):
                 this_sentence = self.process_turn_node(node, sentences, this_sentence, events, times)
             elif node.nodeName == "s":
                 this_sentence = self.process_s_node(node, sentences, this_sentence, events, times)
-            # children = node.getElementsByTagName("s")
-            # for child in children:
-            #     for c1 in child.childNodes:
-            #         if c1.nodeType == c1.TEXT_NODE and not c1.data.isspace():
-            #             text = c1.data.replace("\n", "")
-            #             this_sentence += text
-            #             #print(text)
-            #         else:
-            #             self.process_node(c1, this_sentence, sentences, events, times)
-            #             text = self.get_text_from_element(c1)
-            #             this_sentence += " " + text + " "
-            #     split_space = this_sentence.split()
-            #     this_sentence = " ".join(split_space)
-            #     print(this_sentence)
-            #     sentences.append(this_sentence)
-            #     this_sentence = ""
 
         event_instances = {}
         instanceElts = root.getElementsByTagName("MAKEINSTANCE")
