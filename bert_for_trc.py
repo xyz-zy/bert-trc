@@ -136,7 +136,7 @@ class InputFeatures(object):
 
         
 def convert_examples_to_features(examples, tokenizer, max_seq_length,
-                                 doc_stride, is_training):
+                                 doc_stride, is_training, segment_ids=False):
     """Loads a data file into a list of InputFeatures."""
 
     unique_id = 1000000000
@@ -174,14 +174,17 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
        
 
         # The -3 accounts for [CLS], [SEP] and [SEP]
+        segment = 0
 
         tokens = []
         segment_ids = []
         tokens.append("[CLS]")
-        segment_ids.append(0)
+        segment_ids.append(segment)
         for token in input_tokens:
             tokens.append(token)
-            segment_ids.append(0)
+            segment_ids.append(segment)
+            if token == '[SEP]':
+                segment += 1
 
         input_ids = tokenizer.convert_tokens_to_ids(tokens)
 

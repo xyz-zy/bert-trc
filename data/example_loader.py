@@ -268,17 +268,17 @@ class ExampleLoader(object):
                 example = TimeMLExample(text, tlink.e1.pos_in_sentence, tlink.e2.pos_in_sentence, tlink.relType)
             elif sent1 < sent2:
                 sents = file_data.sentences[sent1:sent2+1]
-                text = " ".join(sents)
+                text = " [SEP] ".join(sents)
 
                 e1_pos = tlink.e1.pos_in_sentence
-                e2_pos = sum([len(s.split()) for s in sents[:-1]]) + tlink.e2.pos_in_sentence
+                e2_pos = sum([len(s.split()) + 1 for s in sents[:-1]]) + tlink.e2.pos_in_sentence
 
                 example = TimeMLExample(text, e1_pos, e2_pos, tlink.relType)
             elif sent1 > sent2:
                 sents = file_data.sentences[sent2:sent1+1]
-                text = " ".join(sents)
+                text = " [SEP] ".join(sents)
 
-                e1_pos = sum([len(s.split()) for s in sents[:-1]]) + tlink.e1.pos_in_sentence
+                e1_pos = sum([len(s.split()) + 1 for s in sents[:-1]]) + tlink.e1.pos_in_sentence
                 e2_pos = tlink.e2.pos_in_sentence
 
                 example = TimeMLExample(text, e1_pos, e2_pos, tlink.relType)
@@ -321,19 +321,18 @@ class ExampleLoader(object):
                 
 
     def assign_num_labels(self, all_examples):
-        labels = set()
-        for ex in all_examples:
-            labels.add(ex.str_label)
-        labels = list(labels)
-        labels.sort()
-        print(labels)
-        print(len(labels))
-        self.label_list = labels
+        if not self.label_list:
+            labels = set()
+            for ex in all_examples:
+                labels.add(ex.str_label)
+            labels = list(labels)
+            labels.sort()
+            print(labels)
+            print(len(labels))
+            self.label_list = labels
 
         for ex in all_examples:
-            ex.int_label = labels.index(ex.str_label)    
-            # if ex.int_label < 0 or ex.int_label >= 13:
-            #     print("something wrong")
+            ex.int_label = self.label_list.index(ex.str_label)
 
 
     def read_examples_from_directory(self, dir_path):
@@ -751,4 +750,6 @@ class MatresLoader(ExampleLoader):
         platinum_rels = rel_dir + "platinum.txt"
         test_examples_1, test_examples2 = self.read_subset_examples(doc_dir + "platinum/", platinum_rels)
         
-        return test_examples_1 + test_examples2
+        examples = test_examples_1 + test_examples2
+        self.assign_num_labels(examples)
+        return examples
