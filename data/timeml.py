@@ -165,10 +165,10 @@ class TimeMLFile(object):
 
         elif sent1 < sent2:
             sents = self.sentences[sent1:sent2+1]
-            text = " ".join(sents)
+            text = " [SEP] ".join(sents)
 
             e1_pos = e1.pos_in_sentence
-            e2_pos = sum([len(s.split()) for s in sents[:-1]]) + e2.pos_in_sentence
+            e2_pos = sum([len(s.split()) + 1 for s in sents[:-1]]) + e2.pos_in_sentence
 
             if window_size:
                 text, e1_pos, e2_pos = self.make_window(text, e1_pos, e2_pos, window_size)
@@ -183,9 +183,9 @@ class TimeMLFile(object):
 
         elif sent1 > sent2:
             sents = self.sentences[sent2:sent1+1]
-            text = " ".join(sents)
+            text = " [SEP] ".join(sents)
 
-            e1_pos = sum([len(s.split()) for s in sents[:-1]]) + e1.pos_in_sentence
+            e1_pos = sum([len(s.split()) + 1 for s in sents[:-1]]) + e1.pos_in_sentence
             e2_pos = e2.pos_in_sentence
             
             if window_size:
