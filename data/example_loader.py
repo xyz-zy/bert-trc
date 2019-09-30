@@ -4,7 +4,7 @@ from timeml import *
 class ExampleLoader(object):
 
     def __init__(self):
-        pass
+        self.label_list = None
 
 
     def get_loss_weights():
