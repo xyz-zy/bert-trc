@@ -40,18 +40,11 @@ class BertForTRC(BertPreTrainedModel):
             output_tensors.append(position_tensor)
         return torch.stack(output_tensors, dim=0)
 
-    # def gen_mask(positions):
-    #     mask = torch.zeros(len(positions), len(positions), dtype=torch.uint8)
-    #     for sample_idx, pos in enumerate(positions):
-    #         mask[sample_idx, pos] = 1
-    #     return mask
-
     def eval_sequence_output(self, input_ids, token_type_ids=None, attention_mask=None, 
                              tre_labels=None, e1_pos=None, e2_pos=None):
         sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask,
                                        output_all_encoded_layers=False)
         return sequence_output
-
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, tre_labels=None, e1_pos=None, e2_pos=None):
         sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask,
@@ -66,6 +59,7 @@ class BertForTRC(BertPreTrainedModel):
         out = self.classifier(cls_tensor)
         loss = self.loss(out, tre_labels)
         return out, loss
+
 
 class BertForTBD(BertForTRC):
     
@@ -86,6 +80,7 @@ class BertForTBD(BertForTRC):
               self.train_class_loss_weights)
                   .float()
         )
+
 
 class BertForMatres(BertForTRC):
     
@@ -143,7 +138,6 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
 
     features = []
     
-                
     # Generates features from examples.
     for (example_index, example) in enumerate(examples):
         input_tokens = tokenizer.tokenize(example.text)
@@ -254,3 +248,4 @@ def save_vocabulary(tokenizer, vocab_path):
             writer.write(token + u'\n')
             index += 1
     return vocab_file
+
