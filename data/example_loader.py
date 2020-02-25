@@ -182,7 +182,6 @@ class ExampleLoader(object):
         """
         doc = dom.parse(input_file)
         root = doc.childNodes[0]
-
         sentences = []
 
         events = {}
@@ -246,7 +245,7 @@ class ExampleLoader(object):
                 tlink = Tlink(lid, relType, times[tid], times[relatedToTime])
                 tlinks.append(tlink)
 
-        return TimeMLFile(sentences, events, event_instances, times, tlinks)
+        return TimeMLFile(sentences, events, event_instances, times, tlinks, input_file)
 
     def read_examples(self, input_file):
         file_data = self.read_file(input_file)
@@ -663,6 +662,8 @@ class MatresLoader(ExampleLoader):
 
     def __init__(self):
         super().__init__()
+        self.train_files = []
+        self.dev_files = []
 
     def read_subset_examples(self, doc_dir, rel_filename, window_size=None):
         rels_to_files = {}
@@ -688,6 +689,7 @@ class MatresLoader(ExampleLoader):
         for file in files[:split]:
             rels = rels_to_files[file]
             file_data = self.read_file(doc_dir + file + ".tml")
+            self.train_files.append(file_data)
             rels = rels_to_files[file]
             for rel in rels:
                 eiid1 = file_data.get_element("ei" + rel[3])
@@ -709,6 +711,7 @@ class MatresLoader(ExampleLoader):
         for file in files[split:]:
             rels = rels_to_files[file]
             file_data = self.read_file(doc_dir + file + ".tml")
+            self.dev_files.append(file_data)
             rels = rels_to_files[file]
             for rel in rels:
                 eiid1 = file_data.get_element("ei" + rel[3])

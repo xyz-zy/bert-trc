@@ -23,7 +23,7 @@ class TimeMLExample(object):
         self.e2_pos = e2_pos
         self.str_label = label
         self.int_label = None
-
+        self.label = label
         self.sentences = None
         self.e1_sentence_num = None
         self.e1_sentence_pos= None
@@ -76,7 +76,7 @@ class Tlink(object):
         pass
 
 class TimeMLFile(object):
-    def __init__(self, sentences, events, eventInstances, times, tlinks):
+    def __init__(self, sentences, events, eventInstances, times, tlinks, filename):
         self.sentences = sentences
         self.events = events
         #print(events.keys())
@@ -84,6 +84,7 @@ class TimeMLFile(object):
         self.times = times
         self.tlinks = tlinks
         #print(times.keys())
+        self.filename=filename
 
     def get_element(self, id):
         '''
@@ -198,6 +199,9 @@ class TimeMLFile(object):
             example.e1_sentence_pos = e1.pos_in_sentence
             example.e2_sentence_num = 0
             example.e2_sentence_pos = e2.pos_in_sentence
-
+        example.sent1 = self.sentences[sent1].split()
+        example.sent2 = self.sentences[sent2].split()
+        example.e1_idx = e1.pos_in_sentence
+        example.e2_idx = e2.pos_in_sentence
 
         return example
