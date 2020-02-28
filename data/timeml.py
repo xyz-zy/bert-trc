@@ -2,6 +2,7 @@ import xml.dom.minidom as dom
 import re
 import glob, os
 import itertools
+import pathlib
 
 scriptpath = os.path.realpath(__file__)
 scriptdir = foldername = os.path.dirname(scriptpath)
@@ -45,6 +46,7 @@ class Event(object):
 class EventInstance(object):
     def __init__(self, eiid, event, tense, aspect, polarity, pos, sentence, pos_in_sentence):
         self.eiid = eiid
+        self.eid = eiid
         self.event = event
         self.tense = tense
         self.aspect = aspect
@@ -85,6 +87,8 @@ class TimeMLFile(object):
         self.tlinks = tlinks
         #print(times.keys())
         self.filename=filename
+        path = pathlib.PurePath(filename)
+        self.filename_clean = path.parent.name + "/" + path.name 
 
     def get_element(self, id):
         '''
@@ -203,5 +207,7 @@ class TimeMLFile(object):
         example.sent2 = self.sentences[sent2].split()
         example.e1_idx = e1.pos_in_sentence
         example.e2_idx = e2.pos_in_sentence
-
+        example.filename = self.filename_clean
+        example.e1_eid = e1.eid
+        example.e2_eid = e2.eid
         return example
