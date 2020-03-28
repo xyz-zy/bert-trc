@@ -17,6 +17,13 @@ TE3_DIR = scriptdir + "/TBAQ-cleaned/"
 class TimeMLExample(object):
     """
     A single training/test example for the TimeML dataset.
+        example.sent1 = self.sentences[sent1].split()
+        example.sent2 = self.sentences[sent2].split()
+        example.e1_idx = e1.pos_in_sentence
+        example.e2_idx = e2.pos_in_sentence
+        example.filename = self.filename_clean
+        example.e1_eid = e1.eid
+        example.e2_eid = e2.eid
     """
     def __init__(self, text, e1_pos, e2_pos, label):
         self.text = text
@@ -32,7 +39,7 @@ class TimeMLExample(object):
         self.e2_sentence_pos = None
 
     def __str__(self):
-        return self.text + "\n" + str(self.e1_pos) + " " + str(self.e2_pos) + " " + self.str_label
+        return " ".join(self.text) + "\n" + str(self.e1_pos) + " " + str(self.e2_pos) + " " + self.str_label
 
 class Event(object):
     def __init__(self, eid, cls, sentence, pos_in_sentence):
@@ -203,10 +210,10 @@ class TimeMLFile(object):
             example.e1_sentence_pos = e1.pos_in_sentence
             example.e2_sentence_num = 0
             example.e2_sentence_pos = e2.pos_in_sentence
-        example.sent1 = self.sentences[sent1].split()
-        example.sent2 = self.sentences[sent2].split()
+        example.sent1 = example.sentences[0].split()
+        example.sent2 = " ".join(example.sentences[1:]).split() if sent1 != sent2 else example.sent1
         example.e1_idx = e1.pos_in_sentence
-        example.e2_idx = e2.pos_in_sentence
+        example.e2_idx = sum([len(s.split()) for s in example.sentences[1:-1]]) + e2.pos_in_sentence if sent2 > sent1 +1 else e2.pos_in_sentence
         example.filename = self.filename_clean
         example.e1_eid = e1.eid
         example.e2_eid = e2.eid
