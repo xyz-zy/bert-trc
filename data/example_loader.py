@@ -1,11 +1,11 @@
 from timeml import *
-
+from allennlp.data.tokenizers.sentence_splitter import SpacySentenceSplitter
 
 class ExampleLoader(object):
 
     def __init__(self):
         self.label_list = None
-
+        self.sentence_splitter = SpacySentenceSplitter()
 
     def get_loss_weights():
         # Calculate loss weights as the inverse of label occurrence.
@@ -36,23 +36,23 @@ class ExampleLoader(object):
                 text += " "+ self.get_text_from_element(child) + " "
             return text
 
-    def process_node(self, node, sentence, sentences, events, times):
+    def process_node(self, node, events, times, full_text):
         if node.nodeName == "EVENT":
             eid = node.attributes['eid'].value
             cls = node.attributes['class'].value
-            sentence_num = len(sentences)
-            pos_in_sentence = len(sentence.split())
 
-            event = Event(eid=eid, cls=cls, sentence=sentence_num, pos_in_sentence=pos_in_sentence)
+            event = Event(eid=eid, cls=cls, sentence=None, pos_in_sentence=None)
+            event.idx_in_doc = len(full_text)
             events[eid] = event
+            return event
 
         if node.nodeName == "TIMEX3":
             tid = node.attributes['tid'].value
             type = node.attributes['type'].value
-            sentence_num = len(sentences)
-            pos_in_sentence = len(sentence.split())
-            time = TimeX3(tid=tid, sentence=sentence_num, pos_in_sentence=pos_in_sentence)
+            time = TimeX3(tid=tid, sentence=None, pos_in_sentence=None)
+            time.idx_in_doc = len(full_text)
             times[tid] = time
+            return time
 
     def get_instances(self, instance_elts, event_instances, events, input_file):
         for instance in instance_elts:
@@ -74,101 +74,70 @@ class ExampleLoader(object):
             instance = EventInstance(eiid, event, tense, aspect, polarity, pos, sentence, pos_in_sentence)
             event_instances[eiid] = instance
 
-    def process_s_node(self, node, sentences, this_sentence, events, times):
-        assert node.nodeName == "s", "not s node " + node.nodeName
-        for c1 in node.childNodes:
-            if c1.nodeType == c1.TEXT_NODE and not c1.data.isspace():
-                text = c1.data.replace("\n", " ")
-                this_sentence += text
-                #print(text)
-            else:
-                self.process_node(c1, this_sentence, sentences, events, times)
-                text = self.get_text_from_element(c1)
-                this_sentence += " " + text + " "
-        split_space = this_sentence.split()
-        this_sentence = " ".join(split_space)
-        #print(this_sentence)
-        sentences.append(this_sentence)
-        this_sentence = ""
-
-        return this_sentence
-
-    def process_turn_node(self, node, sentences, this_sentence, events, times):
-        children = node.getElementsByTagName("s")
-        for child in children:
-            this_sentence = self.process_s_node(child, sentences, this_sentence, events, times)
-
-        return this_sentence
-
-    def read_extra_file(self, input_file):
-        doc = dom.parse(input_file)
-        root = doc.childNodes[0]
-
-        elts = root.getElementsByTagName("TEXT")
-
-        if len(elts) == 0:
-
-            elts = root.getElementsByTagName("BODY")
-            assert len(elts) == 1, input_file + str(len(elts))
-            body = elts[0]
-
-            elts = body.getElementsByTagName("TEXT")
-
-            if len(elts) == 0:
-                elts = body.getElementsByTagName("bn_episode_trans")
-                assert len(elts) == 1, input_file
-                elts = elts[0].getElementsByTagName("section")
-                assert len(elts) == 1, input_file
-                elts = elts[0].getElementsByTagName("TEXT")
-            
-        assert len(elts) == 1, input_file
-        text_elt = elts[0]
-
-        sentences = []
-        events = {}
-        times = {}
-        this_sentence = ""
-        for node in text_elt.childNodes:
-            #print(node.nodeName)
-            if node.nodeName == "turn":
-                this_sentence = self.process_turn_node(node, sentences, this_sentence, events, times)
-            elif node.nodeName == "s":
-                this_sentence = self.process_s_node(node, sentences, this_sentence, events, times)
-
-        event_instances = {}
-        instanceElts = root.getElementsByTagName("MAKEINSTANCE")
-        self.get_instances(instanceElts, event_instances, events, input_file)
-
-        return TimeMLFile(sentences, events, event_instances, times, None)
-
-    def parse_node(self, root, sentences, events, times):
-        this_sentence = ""
+    def parse_node(self, root, events, times, full_text):
+#         print(full_text)
         for node in root.childNodes:
             if node.nodeType == node.TEXT_NODE and not node.data.isspace():
                 text = re.sub(r"\n+", " ", node.data)
+                text = re.sub(r"_", "", node.data)
                 split_space = text.split()
-                text = " ".join(split_space)
-                split = re.split(r'([\?\.!]) ', text)
-                while len(split) > 0:
-                    this_sentence += split.pop(0)
-                    if len(this_sentence) > 0 and this_sentence[-1] in ["?", ".", "!"]:
-                        sentences.append(this_sentence)
-                        this_sentence = ""
+                full_text += split_space
             elif node.nodeName == "TEXT":
-                self.parse_node(node, sentences, events, times)
+                self.parse_node(node, events, times, full_text)
             else:
-                self.process_node(node, this_sentence, sentences, events, times)
+                el = self.process_node(node, events, times, full_text)
                 text = self.get_text_from_element(node)
-                if text:
-                    this_sentence += " " + text + " "
-                    if len(this_sentence) > 0 and this_sentence[-1] in ["?", ".", "!"]:
-                        sentences.append(this_sentence)
-                        this_sentence = ""
+                if el:
+                    el.text = text.strip()
+                full_text += text.split()
+                
+    def get_full_text_to_sentences(self, full_text, sentences):
+        split_sentences = [s.split() for s in sentences]
 
-        if len(this_sentence) > 0:
-            split = this_sentence.split()
-            rejoined = " ".join(split)
-            sentences.append(rejoined)
+        def next_position(split_sentences, sent_num, sent_idx):
+            cur_sent = split_sentences[sent_num]
+            if sent_idx < len(cur_sent) - 1:
+                sent_idx += 1
+            else:
+                sent_idx = 0
+                sent_num += 1
+                if sent_num < len(split_sentences):
+                    cur_sent = split_sentences[sent_num]
+            return sent_num, sent_idx
+            
+        split_sentences = [s.split() for s in sentences]
+
+        full_text_to_sentences = []
+
+        sent_num = 0
+        sent_idx = 0
+        for i, tok in enumerate(full_text):
+            sent_tok = split_sentences[sent_num][sent_idx]
+#             print(tok, sent_tok)
+            assert tok.startswith(sent_tok), str(i) + " " + tok + " " + sent_tok + "\n" + str(split_sentences[sent_num])
+            full_text_to_sentences.append(tuple([sent_num, sent_idx]))
+            
+            while len(tok) > len(sent_tok):
+                tok = tok[len(sent_tok):]
+                sent_num, sent_idx = next_position(split_sentences, sent_num, sent_idx)
+                sent_tok = split_sentences[sent_num][sent_idx]
+#                 print("WHILE", tok, sent_tok)
+                assert tok.startswith(sent_tok), str(i) + " " + tok + " " + sent_tok + "\n" + str(split_sentences[sent_num])
+#                 print(tok)
+            
+            sent_num, sent_idx = next_position(split_sentences, sent_num, sent_idx)
+            
+        return full_text_to_sentences
+    
+    def convert_doc_idx_to_sentences(self, sentences, full_text_to_sentences, its):
+        for key, obj in its.items():
+            idx = obj.idx_in_doc
+            sentence, pos_in_sentence = full_text_to_sentences[idx]
+#             print(idx, sentence, pos_in_sentence)
+            text = sentences[sentence].split()[pos_in_sentence]
+            assert text == obj.text.split()[0], text + " " + obj.text
+            obj.sentence = sentence
+            obj.pos_in_sentence = pos_in_sentence
 
     def read_file(self, input_file):
         """
@@ -182,12 +151,19 @@ class ExampleLoader(object):
         """
         doc = dom.parse(input_file)
         root = doc.childNodes[0]
-        sentences = []
 
         events = {}
         times = {}
-        self.parse_node(root, sentences, events, times)
-
+        full_text = []
+        self.parse_node(root, events, times, full_text)
+#         print(full_text)
+        
+        sentences = self.sentence_splitter.split_sentences(" ".join(full_text))
+ 
+        full_text_to_sentences = self.get_full_text_to_sentences(full_text, sentences)
+        
+        self.convert_doc_idx_to_sentences(sentences, full_text_to_sentences, events)
+        self.convert_doc_idx_to_sentences(sentences, full_text_to_sentences, times)
 
         event_instances = {}
         instanceElts = root.getElementsByTagName("MAKEINSTANCE")

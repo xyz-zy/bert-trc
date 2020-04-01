@@ -141,13 +141,13 @@ class RobertaForMatres(BertPreTrainedModel):
             output_tensors.append(position_tensor)
         return torch.stack(output_tensors, dim=0)
 
-    def eval_sequence_output(self, input_ids, token_type_ids=None, attention_mask=None,
+    def eval_sequence_output(self, input_ids, attention_mask=None,
                              tre_labels=None, e1_pos=None, e2_pos=None):
         sequence_output, _ = self.roberta(input_ids,
                                           attention_mask=attention_mask)
         return sequence_output
 
-    def forward(self, input_ids, token_type_ids=None, attention_mask=None, tre_labels=None, e1_pos=None, e2_pos=None):
+    def forward(self, input_ids, attention_mask=None, tre_labels=None, e1_pos=None, e2_pos=None):
         outputs = self.roberta(input_ids,
                                attention_mask=attention_mask)
         sequence_output = outputs[0]
@@ -205,3 +205,19 @@ def make_tensor_dataset(train_features, model='roberta'):
     
     return train_data
 
+def get_tensors(features, model='roberta'):
+    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
+    all_attention_masks = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
+    
+    if model == 'bert':
+      all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
+
+    all_label_ids = torch.tensor([e.label for e in features], dtype=torch.long)
+    all_e1_pos = torch.tensor([e.e1_position for e in features], dtype=torch.long)
+    all_e2_pos = torch.tensor([e.e2_position for e in features], dtype=torch.long)
+    if model == 'roberta':
+      return tuple([all_input_ids, all_attention_masks, all_label_ids, all_e1_pos, all_e2_pos])
+    else:
+      return tuple([all_input_ids, all_attention_masks, all_token_type_ids, all_label_ids, all_e1_pos, all_e2_pos])
+
+    

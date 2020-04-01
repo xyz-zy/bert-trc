@@ -25,10 +25,10 @@ class TimeMLExample(object):
         example.e1_eid = e1.eid
         example.e2_eid = e2.eid
     """
-    def __init__(self, text, e1_pos, e2_pos, label):
+    def __init__(self, text, e1_idx, e2_idx, label):
         self.text = text
-        self.e1_pos = e1_pos
-        self.e2_pos = e2_pos
+        self.e1_idx = e1_idx
+        self.e2_idx = e2_idx
         self.str_label = label
         self.int_label = None
         self.label = label
