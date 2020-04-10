@@ -80,6 +80,8 @@ class ExampleLoader(object):
             if node.nodeType == node.TEXT_NODE and not node.data.isspace():
                 text = re.sub(r"\n+", " ", node.data)
                 text = re.sub(r"_", "", node.data)
+                text = re.sub(r"&UR;", "", node.data)
+                text = re.sub(r"&LR;", "", node.data)
                 split_space = text.split()
                 full_text += split_space
             elif node.nodeName == "TEXT":
