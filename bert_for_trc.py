@@ -7,7 +7,6 @@ from torch.utils.data import TensorDataset
 
 from transformers import *
 
-
 class BertForTRC(BertPreTrainedModel):
     
     def __init__(self, config):
@@ -105,6 +104,41 @@ class BertForMatres(BertForTRC):
                   .float()
         )
 
+class ElectraForMatres(BertPreTrainedModel):
+    config_class = ElectraConfig
+    retrained_model_archive_map = ELECTRA_PRETRAINED_MODEL_ARCHIVE_MAP
+    load_tf_weights = load_tf_weights_in_electra
+    base_model_prefix = "electra"
+
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.electra = ElectraModel(config)
+        self.classifier = torch.nn.Linear(4*config.hidden_size, 4)
+        self.loss = torch.nn.CrossEntropyLoss()
+
+    def get_positions(self, sequence_output, positions):
+        output_tensors = []
+        for sample_idx, pos in enumerate(positions):
+            position_tensor = sequence_output[sample_idx][pos]
+            output_tensors.append(position_tensor)
+        return torch.stack(output_tensors, dim=0)
+
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, tre_labels=None, e1_pos=None, e2_pos=None):
+        outputs = self.electra(input_ids=input_ids,
+                               token_type_ids=token_type_ids,
+                               attention_mask=attention_mask)
+        sequence_output = outputs[0]
+        e1_hidden = self.get_positions(sequence_output, e1_pos)
+        e2_hidden = self.get_positions(sequence_output, e2_pos)
+        el_mul = e1_hidden * e2_hidden
+        hidden_diff = (e1_hidden - e2_hidden).abs()
+        cls_tensor = torch.cat((e1_hidden,e2_hidden,el_mul, hidden_diff),1)
+        out = self.classifier(cls_tensor)
+        loss = self.loss(out, tre_labels)
+
+        return loss, out, (e1_hidden, e2_hidden)
+
 
 class RobertaForMatres(BertPreTrainedModel):
     config_class=RobertaConfig
@@ -192,7 +226,7 @@ def make_tensor_dataset(train_features, model='roberta'):
     all_input_ids = torch.tensor([f.input_ids for f in train_features], dtype=torch.long)
     all_attention_masks = torch.tensor([f.attention_mask for f in train_features], dtype=torch.long)
     
-    if model == 'bert':
+    if model == 'bert' or model == 'electra':
       all_token_type_ids = torch.tensor([f.token_type_ids for f in train_features], dtype=torch.long)
 
     all_label_ids = torch.tensor([e.label for e in train_features], dtype=torch.long)
@@ -209,7 +243,7 @@ def get_tensors(features, model='roberta'):
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
     all_attention_masks = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
     
-    if model == 'bert':
+    if model == 'bert' or model == 'electra':
       all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
 
     all_label_ids = torch.tensor([e.label for e in features], dtype=torch.long)
