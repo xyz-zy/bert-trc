@@ -243,7 +243,7 @@ def get_tensors(features, model='roberta'):
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
     all_attention_masks = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
     
-    if model == 'bert' or model == 'electra':
+    if model == 'bert' or model.startswith('electra'):
       all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
 
     all_label_ids = torch.tensor([e.label for e in features], dtype=torch.long)
