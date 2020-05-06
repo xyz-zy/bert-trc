@@ -60,7 +60,7 @@ class BertForTRC(BertPreTrainedModel):
 
         out = self.classifier(cls_tensor)
         loss = self.loss(out, tre_labels)
-        return out, loss
+        return loss, out, (e1_hidden, e2_hidden)
 
 
 class BertForTBD(BertForTRC):
