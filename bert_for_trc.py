@@ -175,11 +175,18 @@ class RobertaForMatres(BertPreTrainedModel):
             output_tensors.append(position_tensor)
         return torch.stack(output_tensors, dim=0)
 
-    def eval_sequence_output(self, input_ids, attention_mask=None,
-                             tre_labels=None, e1_pos=None, e2_pos=None):
-        sequence_output, _ = self.roberta(input_ids,
-                                          attention_mask=attention_mask)
-        return sequence_output
+    def predict(self, input_ids, attention_mask=None,
+                             e1_pos=None, e2_pos=None):
+        outputs = self.roberta(input_ids,
+                               attention_mask=attention_mask)
+        sequence_output = outputs[0]
+        e1_hidden = self.get_positions(sequence_output, e1_pos)
+        e2_hidden = self.get_positions(sequence_output, e2_pos)
+        el_mul = e1_hidden * e2_hidden
+        hidden_diff = (e1_hidden - e2_hidden).abs()
+        cls_tensor = torch.cat((e1_hidden,e2_hidden,el_mul, hidden_diff),1)
+        out = self.classifier(cls_tensor)
+        return out
 
     def forward(self, input_ids, attention_mask=None, tre_labels=None, e1_pos=None, e2_pos=None):
         outputs = self.roberta(input_ids,
